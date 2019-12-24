@@ -306,41 +306,29 @@ class Graphs(commands.Cog):
     async def solved(self, ctx, *args: str):
         """Shows a histogram of problems solved on Codeforces for the handles provided.
         e.g. ;plot solved meooow +contest +virtual +outof +dp"""
-        team, _, types, tags, dlo, dhi, rlo, rhi, args = cf_common.filter_sub_args(args)
+        filt = cf_common.SubFilter()
+        args = filt.parse(args)
         handles = args or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
         resp = [await cf.user.status(handle=handle) for handle in handles]
-        contests = await cf.contest.list()
-
-        all_solved_subs = [cf_common.filter_solved_submissions(submissions, contests, tags, types, team, dlo, dhi, True, rlo, rhi)
-                           for submissions in resp]
+        all_solved_subs = [filt.filter(submissions) for submissions in resp]
 
         if not any(all_solved_subs):
-            handles_str = ', '.join(f'`{handle}`' for handle in handles)
-            tags_str = ''
-            if tags:
-                tags_str = (('with tag ' if len(tags) == 1 else 'with tags ')
-                            + ', '.join(f'`{tag}`' for tag in tags))
-            if len(handles) == 1:
-                message = f'User {handles_str} has not solved any rated problem {tags_str}.'
-            else:
-                message = (f'None of the users {handles_str} have solved any rated problem '
-                           f'{tags_str}.')
-            raise GraphCogError(message)
+            raise GraphCogError(f'There are no problems within the specified parameters.')
 
         if len(handles) == 1:
             # Display solved problem separately by type for a single user.
             handle, solved_by_type = handles[0], _classify_submissions(all_solved_subs[0])
             all_ratings = [[sub.problem.rating for sub in solved_by_type[sub_type]]
-                           for sub_type in types]
+                           for sub_type in filt.types]
 
-            nice_names = nice_sub_type(types)
+            nice_names = nice_sub_type(filt.types)
             labels = [name.format(len(ratings)) for name, ratings in zip(nice_names, all_ratings)]
             total = sum(map(len, all_ratings))
 
             step = 100
             # shift the range to center the text
-            hist_bins = list(range(rlo - step // 2, rhi + step // 2 + 1, step))
+            hist_bins = list(range(filt.rlo - step // 2, filt.rhi + step // 2 + 1, step))
             plt.clf()
             plt.hist(all_ratings, stacked=True, bins=hist_bins, label=labels)
             plt.xlabel('Problem rating')
@@ -359,7 +347,7 @@ class Graphs(commands.Cog):
                       for handle, ratings in zip(handles, all_ratings)]
 
             step = 200
-            hist_bins = list(range(rlo, rhi + step, step))
+            hist_bins = list(range(filt.rlo - step // 2, filt.rhi + step // 2 + 1, step))
             plt.clf()
             plt.hist(all_ratings, bins=hist_bins, label=labels)
             plt.xlabel('Problem rating')
@@ -376,21 +364,21 @@ class Graphs(commands.Cog):
                   usage='[handles] [+practice] [+contest] [+virtual] [+outof] [+team] [+tag..] [r>=rating] [r<=rating] [d>=[[dd]mm]yyyy] [d<[[dd]mm]yyyy]')
     async def hist(self, ctx, *args: str):
         """Shows the actual histogram of problems solved on Codeforces for the handles provided."""
-        team, _, types, tags, dlo, dhi, rlo, rhi, args = cf_common.filter_sub_args(args)
-        handle = args[0] if args else '!' + str(ctx.author)
-        handle, = await cf_common.resolve_handles(ctx, self.converter, (handle,))
-        subs = await cf.user.status(handle=handle)
-        contests = await cf.contest.list()
+        filt = cf_common.SubFilter()
+        args = filt.parse(args)
+        handles = args or ('!' + str(ctx.author),)
+        handles = await cf_common.resolve_handles(ctx, self.converter, handles)
 
-        solved_subs = cf_common.filter_solved_submissions(subs, contests, tags, types, team, dlo, dhi, True, rlo, rhi)
-        solved_by_type = _classify_submissions(solved_subs)
+        submissions = [await cf.user.status(handle=handle) for handle in handles]
+        submissions = filt.filter([sub for subs in submissions for sub in subs])
+        solved_by_type = _classify_submissions(submissions)
         all_times = [[dt.datetime.fromtimestamp(sub.creationTimeSeconds) for sub in solved_by_type[sub_type]]
-                       for sub_type in types]
+                       for sub_type in filt.types]
 
         if not any(all_times):
             raise GraphCogError(f'There are no problems within the specified parameters.')
 
-        nice_names = nice_sub_type(types)
+        nice_names = nice_sub_type(filt.types)
         labels = [name.format(len(times)) for name, times in zip(nice_names, all_times)]
         total = sum(map(len, all_times))
 
@@ -398,7 +386,7 @@ class Graphs(commands.Cog):
         plt.hist(all_times, stacked=True, label=labels, bins=34)
         plt.xlabel('Time')
         plt.ylabel('Number solved')
-        plt.legend(title=f'{handle}: {total}', title_fontsize=plt.rcParams['legend.fontsize'])
+        plt.legend(title=f'{handles[0]}: {total}', title_fontsize=plt.rcParams['legend.fontsize'])
         plt.gcf().autofmt_xdate()
         discord_file = _get_current_figure_as_file()
         embed = discord_common.cf_color_embed(title='Histogram of number of solved problems over time')
@@ -411,7 +399,8 @@ class Graphs(commands.Cog):
     async def scatter(self, ctx, *args):
         """Plot Codeforces rating overlaid on a scatter plot of problems solved.
         Also plots a running average of ratings of problems solved in practice."""
-        team, _, types, tags, dlo, dhi, rlo, rhi, args = cf_common.filter_sub_args(args)
+        filt = cf_common.SubFilter()
+        args = filt.parse(args)
         handle, bin_size = None, 10
         for arg in args:
             if arg.isdigit():
@@ -425,13 +414,11 @@ class Graphs(commands.Cog):
         handle = handle or '!' + str(ctx.author)
         handle, = await cf_common.resolve_handles(ctx, self.converter, (handle,))
         rating_resp = [await cf.user.rating(handle=handle)]
-        contests = await cf.contest.list()
-        submissions = await cf.user.status(handle=handle)
-        submissions = cf_common.filter_solved_submissions(submissions, contests, tags, types, team, dlo, dhi, True, rlo, rhi)
+        submissions = filt.filter(await cf.user.status(handle=handle))
 
         rating_resp = [[change for change in changes
-                        if change.ratingUpdateTimeSeconds >= dlo
-                        and change.ratingUpdateTimeSeconds <= dhi]
+                        if change.ratingUpdateTimeSeconds >= filt.dlo
+                        and change.ratingUpdateTimeSeconds < filt.dhi]
                        for changes in rating_resp]
 
         def extract_time_and_rating(submissions):
@@ -449,10 +436,20 @@ class Graphs(commands.Cog):
 
         plt.clf()
         _plot_scatter(regular, practice, virtual)
-        labels = ['Practice', 'Regular', 'Virtual']
+        labels = []
+        if regular:
+            labels.append('Regular')
+        if practice:
+            labels.append('Practice')
+        if virtual:
+            labels.append('Virtual')
         plt.legend(labels, loc='upper left')
         _plot_average(practice, bin_size)
         _plot_rating(rating_resp, mark='')
+
+        # zoom
+        ymin, ymax = plt.gca().get_ylim()
+        plt.ylim(max(ymin, filt.rlo - 100), min(ymax, filt.rhi + 100))
 
         discord_file = _get_current_figure_as_file()
         embed = discord_common.cf_color_embed(title=f'Rating vs solved problem rating for {handle}')

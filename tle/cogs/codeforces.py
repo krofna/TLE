@@ -146,16 +146,13 @@ class Codeforces(commands.Cog):
         if '+hardest' in args:
             hardest = True
             args.remove('+hardest')
-        team, rated, types, tags, dlo, dhi, rlo, rhi, args = cf_common.filter_sub_args(args)
 
-        handles = [arg for arg in args if arg[0] != '+']
-        handles = handles or ('!' + str(ctx.author),)
+        filt = cf_common.SubFilter()
+        args = filt.parse(args)
+        handles = args or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
-        contests = await cf.contest.list()
         submissions = [await cf.user.status(handle=handle) for handle in handles]
-        def filter_subs(subs):
-            return cf_common.filter_solved_submissions(subs, contests, tags, types, team, dlo, dhi, rated, rlo, rhi)
-        submissions = [sub for subs in submissions for sub in filter_subs(subs)]
+        submissions = [sub for subs in submissions for sub in filt.filter(subs)]
 
         if hardest:
             submissions.sort(key=lambda sub: sub.problem.rating or 0, reverse=True)

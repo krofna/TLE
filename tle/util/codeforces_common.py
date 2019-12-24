@@ -221,79 +221,90 @@ def parse_date(arg):
         raise ParamParseError(f'{arg} is an invalid date argument')
     return time.mktime(datetime.datetime.strptime(arg, fmt).timetuple())
 
-def filter_sub_args(args):
-    args = list(set(args))
-    team = False
-    rated = False
-    dlo, dhi = 0, datetime.datetime.now().timestamp()
-    rlo, rhi = 500, 3800
-    types, tags, rest = [], [], []
+class SubFilter:
+    def __init__(self):
+        self.team = False
+        self.rated = False
+        self.dlo, self.dhi = 0, 10**10
+        self.rlo, self.rhi = 500, 3800
+        self.types = []
+        self.tags = []
 
-    for arg in args:
-        if arg == '+team':
-            team = True
-        elif arg == '+contest':
-            types.append('CONTESTANT')
-        elif arg =='+outof':
-            types.append('OUT_OF_COMPETITION')
-        elif arg == '+virtual':
-            types.append('VIRTUAL')
-        elif arg == '+practice':
-            types.append('PRACTICE')
-        elif arg[0] == '+':
-            if len(arg) == 1:
-                raise ParamParseError('Problem tag cannot be empty.')
-            tags.append(arg[1:])
-        elif arg[0:2] == 'd<':
-            dhi = parse_date(arg[2:])
-        elif arg[0:3] == 'd>=':
-            dlo = parse_date(arg[3:])
-        elif arg[0:3] in ['r<=', 'r>=']:
-            if len(arg) < 4:
-                raise ParamParseError(f'{arg} is an invalid rating argument')
-            elif arg[1] == '>':
-                rlo = int(arg[3:])
+    def parse(self, args):
+        args = list(set(args))
+        rest = []
+
+        for arg in args:
+            if arg == '+team':
+                self.team = True
+            elif arg == '+contest':
+                self.types.append('CONTESTANT')
+            elif arg =='+outof':
+                self.types.append('OUT_OF_COMPETITION')
+            elif arg == '+virtual':
+                self.types.append('VIRTUAL')
+            elif arg == '+practice':
+                self.types.append('PRACTICE')
+            elif arg[0] == '+':
+                if len(arg) == 1:
+                    raise ParamParseError('Problem tag cannot be empty.')
+                self.tags.append(arg[1:])
+            elif arg[0:2] == 'd<':
+                self.dhi = parse_date(arg[2:])
+            elif arg[0:3] == 'd>=':
+                self.dlo = parse_date(arg[3:])
+            elif arg[0:3] in ['r<=', 'r>=']:
+                if len(arg) < 4:
+                    raise ParamParseError(f'{arg} is an invalid rating argument')
+                elif arg[1] == '>':
+                    self.rlo = int(arg[3:])
+                else:
+                    self.rhi = int(arg[3:])
+                self.rated = True
             else:
-                rhi = int(arg[3:])
-            rated = True
-        else:
-            rest.append(arg)
+                rest.append(arg)
 
-    types = types or ['CONTESTANT', 'OUT_OF_COMPETITION', 'VIRTUAL', 'PRACTICE']
-    return team, rated, types, tags, dlo, dhi, rlo, rhi, rest
+        self.types = self.types or ['CONTESTANT', 'OUT_OF_COMPETITION', 'VIRTUAL', 'PRACTICE']
+        return rest
 
-def filter_solved_submissions(submissions, contests, tags=None, types=None, team=False, dlo=0, dhi=2147483647, rated=False, rlo=500, rhi=3800):
-    """Filters and keeps only solved submissions with problems that have a rating and belong to
-    some contest from given contests. If a problem is solved multiple times the first accepted
-    submission is kept. The unique id for a problem is (problem name, contest start time). A list
-    of tags may be provided to filter out problems that do not have *all* of the given tags.
-    """
-    submissions.sort(key=lambda sub: sub.creationTimeSeconds)
-    contest_id_map = {contest.id: contest for contest in contests}
-    problems = set()
-    solved_subs = []
+    @staticmethod
+    def filter_solved(submissions):
+        """Filters and keeps only solved submissions. If a problem is solved multiple times the first
+        accepted submission is kept. The unique id for a problem is (problem name, contest start time).
+        """
+        submissions.sort(key=lambda sub: sub.creationTimeSeconds)
+        problems = set()
+        solved_subs = []
 
-    for submission in submissions:
-        problem = submission.problem
-        contest = contest_id_map.get(problem.contestId)
-        sub_ok = submission.verdict == 'OK'
-        type_ok = not types or submission.author.participantType in types
-        date_ok = submission.creationTimeSeconds >= dlo and submission.creationTimeSeconds <= dhi
-        tag_ok = not tags or problem.tag_matches(tags)
-        team_ok = team or len(submission.author.members) == 1
-        if rated:
-            problem_ok = contest and contest.id < cf.GYM_ID_THRESHOLD and not is_nonstandard_problem(problem)
-            rating_ok = problem.rating and problem.rating >= rlo and problem.rating <= rhi
-        else:
-            # acmsguru and gym allowed
-            problem_ok = (not contest or contest.id >= cf.GYM_ID_THRESHOLD
-                          or not is_nonstandard_problem(problem))
-            rating_ok = True
+        for submission in submissions:
+            problem = submission.problem
+            contest = cache2.contest_cache.contest_by_id.get(problem.contestId, None)
+            if submission.verdict == 'OK':
+                # Assume (name, contest start time) is a unique identifier for problems
+                problem_key = (problem.name, contest.startTimeSeconds if contest else 0)
+                if problem_key not in problems:
+                    solved_subs.append(submission)
+                    problems.add(problem_key)
+        return solved_subs
 
-        if sub_ok and type_ok and date_ok and rating_ok and contest and tag_ok and team_ok and problem_ok:
-            # Assume (name, contest start time) is a unique identifier for problems
-            problem_key = (problem.name, contest.startTimeSeconds)
-            if problem_key not in problems:
-                solved_subs.append(submission)
-                problems.add(problem_key)
-    return solved_subs
+    def filter(self, submissions):
+        submissions = SubFilter.filter_solved(submissions)
+        filtered_subs = []
+        for submission in submissions:
+            problem = submission.problem
+            contest = cache2.contest_cache.contest_by_id.get(problem.contestId, None)
+            type_ok = submission.author.participantType in self.types
+            date_ok = submission.creationTimeSeconds >= self.dlo and submission.creationTimeSeconds < self.dhi
+            tag_ok = not self.tags or problem.tag_matches(self.tags)
+            team_ok = self.team or len(submission.author.members) == 1
+            if self.rated:
+                problem_ok = contest and contest.id < cf.GYM_ID_THRESHOLD and not is_nonstandard_problem(problem)
+                rating_ok = problem.rating and problem.rating >= self.rlo and problem.rating <= self.rhi
+            else:
+                # acmsguru and gym allowed
+                problem_ok = (not contest or contest.id >= cf.GYM_ID_THRESHOLD
+                              or not is_nonstandard_problem(problem))
+                rating_ok = True
+            if type_ok and date_ok and rating_ok and contest and tag_ok and team_ok and problem_ok:
+                filtered_subs.append(submission)
+        return filtered_subs
