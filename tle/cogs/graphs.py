@@ -436,10 +436,10 @@ class Graphs(commands.Cog):
         plt.clf()
         _plot_scatter(regular, practice, virtual)
         labels = []
-        if regular:
-            labels.append('Regular')
         if practice:
             labels.append('Practice')
+        if regular:
+            labels.append('Regular')
         if virtual:
             labels.append('Virtual')
         plt.legend(labels, loc='upper left')

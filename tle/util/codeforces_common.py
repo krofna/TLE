@@ -222,9 +222,9 @@ def parse_date(arg):
     return time.mktime(datetime.datetime.strptime(arg, fmt).timetuple())
 
 class SubFilter:
-    def __init__(self):
+    def __init__(self, rated=True):
         self.team = False
-        self.rated = False
+        self.rated = rated
         self.dlo, self.dhi = 0, 10**10
         self.rlo, self.rhi = 500, 3800
         self.types = []

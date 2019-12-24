@@ -147,7 +147,7 @@ class Codeforces(commands.Cog):
             hardest = True
             args.remove('+hardest')
 
-        filt = cf_common.SubFilter()
+        filt = cf_common.SubFilter(False)
         args = filt.parse(args)
         handles = args or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
