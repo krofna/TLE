@@ -152,7 +152,8 @@ class Codeforces(commands.Cog):
         handles = args or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
         submissions = [await cf.user.status(handle=handle) for handle in handles]
-        submissions = [sub for subs in submissions for sub in filt.filter(subs)]
+        submissions = [sub for subs in submissions for sub in subs]
+        submissions = filt.filter(submissions)
 
         if hardest:
             submissions.sort(key=lambda sub: sub.problem.rating or 0, reverse=True)

@@ -305,6 +305,6 @@ class SubFilter:
                 problem_ok = (not contest or contest.id >= cf.GYM_ID_THRESHOLD
                               or not is_nonstandard_problem(problem))
                 rating_ok = True
-            if type_ok and date_ok and rating_ok and contest and tag_ok and team_ok and problem_ok:
+            if type_ok and date_ok and rating_ok and tag_ok and team_ok and problem_ok:
                 filtered_subs.append(submission)
         return filtered_subs
