@@ -417,8 +417,7 @@ class Graphs(commands.Cog):
         submissions = filt.filter(await cf.user.status(handle=handle))
 
         rating_resp = [[change for change in changes
-                        if change.ratingUpdateTimeSeconds >= filt.dlo
-                        and change.ratingUpdateTimeSeconds < filt.dhi]
+                        if filt.dlo <= change.ratingUpdateTimeSeconds < filt.dhi]
                        for changes in rating_resp]
 
         def extract_time_and_rating(submissions):

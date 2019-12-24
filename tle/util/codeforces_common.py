@@ -294,12 +294,12 @@ class SubFilter:
             problem = submission.problem
             contest = cache2.contest_cache.contest_by_id.get(problem.contestId, None)
             type_ok = submission.author.participantType in self.types
-            date_ok = submission.creationTimeSeconds >= self.dlo and submission.creationTimeSeconds < self.dhi
+            date_ok = self.dlo <= submission.creationTimeSeconds < self.dhi
             tag_ok = not self.tags or problem.tag_matches(self.tags)
             team_ok = self.team or len(submission.author.members) == 1
             if self.rated:
                 problem_ok = contest and contest.id < cf.GYM_ID_THRESHOLD and not is_nonstandard_problem(problem)
-                rating_ok = problem.rating and problem.rating >= self.rlo and problem.rating <= self.rhi
+                rating_ok = problem.rating and self.rlo <= problem.rating <= self.rhi
             else:
                 # acmsguru and gym allowed
                 problem_ok = (not contest or contest.id >= cf.GYM_ID_THRESHOLD
