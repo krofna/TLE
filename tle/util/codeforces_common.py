@@ -153,8 +153,7 @@ class FilterError(commands.CommandError):
     pass
 
 class ParamParseError(FilterError):
-    def __init__(self, msg):
-        super().__init__(msg)
+    pass
 
 def time_format(seconds):
     seconds = int(seconds)
@@ -215,15 +214,18 @@ async def resolve_handles(ctx, converter, handles, *, mincnt=1, maxcnt=5):
     return resolved_handles
 
 def parse_date(arg):
-    if len(arg) == 8:
-        fmt = '%d%m%Y'
-    elif len(arg) == 6:
-        fmt = '%m%Y'
-    elif len(arg) == 4:
-        fmt = '%Y'
-    else:
+    try:
+        if len(arg) == 8:
+            fmt = '%d%m%Y'
+        elif len(arg) == 6:
+            fmt = '%m%Y'
+        elif len(arg) == 4:
+            fmt = '%Y'
+        else:
+            raise ValueError
+        return time.mktime(datetime.datetime.strptime(arg, fmt).timetuple())
+    except ValueError:
         raise ParamParseError(f'{arg} is an invalid date argument')
-    return time.mktime(datetime.datetime.strptime(arg, fmt).timetuple())
 
 class SubFilter:
     def __init__(self, rated=True):
