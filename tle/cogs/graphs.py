@@ -87,11 +87,11 @@ def _classify_submissions(submissions):
     return solved_by_type
 
 
-def _plot_scatter(regular, practice, virtual):
+def _plot_scatter(regular, practice, virtual, point_size):
     for contest in [practice, regular, virtual]:
         if contest:
             times, ratings = zip(*contest)
-            plt.scatter(times, ratings, zorder=10, s=3, alpha=0.5)
+            plt.scatter(times, ratings, zorder=10, s=point_size)
 
 
 def _running_mean(x, bin_size):
@@ -406,21 +406,23 @@ class Graphs(commands.Cog):
         await ctx.send(embed=embed, file=discord_file)
 
     @plot.command(brief='Show history of problems solved by rating.',
-                  aliases=['chilli'], usage='[handle] [+practice] [+contest] [+virtual] [+outof] [+team] [+tag..] [r>=rating] [r<=rating] [d>=[[dd]mm]yyyy] [d<[[dd]mm]yyyy] [bin_size=10]')
+                  aliases=['chilli'], usage='[handle] [+practice] [+contest] [+virtual] [+outof] [+team] [+tag..] [r>=rating] [r<=rating] [d>=[[dd]mm]yyyy] [d<[[dd]mm]yyyy] [b=10] [s=3]')
     async def scatter(self, ctx, *args):
         """Plot Codeforces rating overlaid on a scatter plot of problems solved.
         Also plots a running average of ratings of problems solved in practice."""
         filt = cf_common.SubFilter()
         args = filt.parse(args)
-        handle, bin_size = None, 10
+        handle, bin_size, point_size = None, 10, 3
         for arg in args:
-            if arg.isdigit():
-                bin_size = int(arg)
+            if arg[0:2] == 'b=':
+                bin_size = int(arg[2:])
+            elif arg[0:2] == 's=':
+                point_size = int(arg[2:])
             else:
                 handle = arg
 
-        if bin_size < 1:
-            raise GraphCogError('Moving average window size must be at least 1')
+        if bin_size < 1 or point_size < 1:
+            raise GraphCogError('Invalid parameters')
 
         handle = handle or '!' + str(ctx.author)
         handle, = await cf_common.resolve_handles(ctx, self.converter, (handle,))
@@ -445,7 +447,7 @@ class Graphs(commands.Cog):
         virtual = extract_time_and_rating(solved_by_type['VIRTUAL'])
 
         plt.clf()
-        _plot_scatter(regular, practice, virtual)
+        _plot_scatter(regular, practice, virtual, point_size)
         labels = []
         if practice:
             labels.append('Practice')
