@@ -316,6 +316,9 @@ class Graphs(commands.Cog):
         if not any(all_solved_subs):
             raise GraphCogError(f'There are no problems within the specified parameters.')
 
+        plt.clf()
+        plt.xlabel('Problem rating')
+        plt.ylabel('Number solved')
         if len(handles) == 1:
             # Display solved problem separately by type for a single user.
             handle, solved_by_type = handles[0], _classify_submissions(all_solved_subs[0])
@@ -324,15 +327,12 @@ class Graphs(commands.Cog):
 
             nice_names = nice_sub_type(filt.types)
             labels = [name.format(len(ratings)) for name, ratings in zip(nice_names, all_ratings)]
-            total = sum(map(len, all_ratings))
 
             step = 100
             # shift the range to center the text
             hist_bins = list(range(filt.rlo - step // 2, filt.rhi + step // 2 + 1, step))
-            plt.clf()
             plt.hist(all_ratings, stacked=True, bins=hist_bins, label=labels)
-            plt.xlabel('Problem rating')
-            plt.ylabel('Number solved')
+            total = sum(map(len, all_ratings))
             plt.legend(title=f'{handle}: {total}', title_fontsize=plt.rcParams['legend.fontsize'],
                        loc='upper right')
 
@@ -348,10 +348,7 @@ class Graphs(commands.Cog):
 
             step = 200
             hist_bins = list(range(filt.rlo - step // 2, filt.rhi + step // 2 + 1, step))
-            plt.clf()
             plt.hist(all_ratings, bins=hist_bins, label=labels)
-            plt.xlabel('Problem rating')
-            plt.ylabel('Number solved')
             plt.legend(loc='upper right')
 
         discord_file = _get_current_figure_as_file()
@@ -368,25 +365,39 @@ class Graphs(commands.Cog):
         args = filt.parse(args)
         handles = args or ('!' + str(ctx.author),)
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
+        resp = [await cf.user.status(handle=handle) for handle in handles]
+        all_solved_subs = [filt.filter(submissions) for submissions in resp]
 
-        submissions = [await cf.user.status(handle=handle) for handle in handles]
-        submissions = filt.filter([sub for subs in submissions for sub in subs])
-        solved_by_type = _classify_submissions(submissions)
-        all_times = [[dt.datetime.fromtimestamp(sub.creationTimeSeconds) for sub in solved_by_type[sub_type]]
-                       for sub_type in filt.types]
-
-        if not any(all_times):
+        if not any(all_solved_subs):
             raise GraphCogError(f'There are no problems within the specified parameters.')
 
-        nice_names = nice_sub_type(filt.types)
-        labels = [name.format(len(times)) for name, times in zip(nice_names, all_times)]
-        total = sum(map(len, all_times))
-
         plt.clf()
-        plt.hist(all_times, stacked=True, label=labels, bins=34)
         plt.xlabel('Time')
         plt.ylabel('Number solved')
-        plt.legend(title=f'{handles[0]}: {total}', title_fontsize=plt.rcParams['legend.fontsize'])
+        if len(handles) == 1:
+            handle, solved_by_type = handles[0], _classify_submissions(all_solved_subs[0])
+            all_times = [[dt.datetime.fromtimestamp(sub.creationTimeSeconds) for sub in solved_by_type[sub_type]]
+                         for sub_type in filt.types]
+
+            nice_names = nice_sub_type(filt.types)
+            labels = [name.format(len(times)) for name, times in zip(nice_names, all_times)]
+            plt.hist(all_times, stacked=True, label=labels, bins=34)
+
+            total = sum(map(len, all_times))
+            plt.legend(title=f'{handle}: {total}', title_fontsize=plt.rcParams['legend.fontsize'])
+        else:
+            all_times = [[dt.datetime.fromtimestamp(sub.creationTimeSeconds) for sub in solved_subs]
+                         for solved_subs in all_solved_subs]
+
+            # NOTE: matplotlib ignores labels that begin with _
+            # https://matplotlib.org/api/pyplot_api.html#matplotlib.pyplot.legend
+            # Add zero-width space to work around this
+            labels = [f'\N{ZERO WIDTH SPACE}{handle}: {len(times)}'
+                      for handle, times in zip(handles, all_times)]
+
+            plt.hist(all_times, label=labels)
+            plt.legend(loc='upper right')
+
         plt.gcf().autofmt_xdate()
         discord_file = _get_current_figure_as_file()
         embed = discord_common.cf_color_embed(title='Histogram of number of solved problems over time')
