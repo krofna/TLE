@@ -148,7 +148,11 @@ class HandleIsVjudgeError(ResolveHandleError):
     def __init__(self, handle):
         super().__init__(f"`{handle}`? I'm not doing that!\n\n(╯°□°）╯︵ ┻━┻")
 
-class ParamParseError(commands.CommandError):
+
+class FilterError(commands.CommandError):
+    pass
+
+class ParamParseError(FilterError):
     def __init__(self, msg):
         super().__init__(msg)
 

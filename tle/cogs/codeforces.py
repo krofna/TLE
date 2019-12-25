@@ -427,7 +427,8 @@ class Codeforces(commands.Cog):
         pages = [make_page(chunk) for chunk in paginator.chunkify(contest_unsolved_pairs, 10)]
         paginator.paginate(self.bot, ctx.channel, pages, wait_time=5 * 60, set_pagenum_footers=True)
 
-    @discord_common.send_error_if(CodeforcesCogError, cf_common.ResolveHandleError)
+    @discord_common.send_error_if(CodeforcesCogError, cf_common.ResolveHandleError,
+                                  cf_common.FilterError)
     async def cog_command_error(self, ctx, error):
         pass
 
