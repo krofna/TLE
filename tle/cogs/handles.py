@@ -319,10 +319,10 @@ class Handles(commands.Cog):
 
     @handle.command(brief="Show all handles")
     async def list(self, ctx, *countries):
-        """Shows all members of the server who have registered their handles and
+        """Shows members of the server who have registered their handles and
         their Codeforces ratings. You can additionally specify a list of countries
         if you wish to display only members from those countries. Country data is
-        sourced from codeforces profiles.
+        sourced from codeforces profiles. e.g. ;handle list Croatia Slovenia
         """
         countries = [country.title() for country in countries]
         res = cf_common.user_db.get_cf_users_for_guild(ctx.guild.id)
