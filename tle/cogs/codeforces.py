@@ -345,6 +345,7 @@ class Codeforces(commands.Cog):
         user_submissions = [await cf.user.status(handle=handle) for handle in handles]
         info = await cf.user.info(handles=handles)
         contests = cf_common.cache2.contest_cache.contests
+        problems = cf_common.cache2.problemset_cache.problems
 
         if not markers:
             divr = sum(user.effective_rating for user in info) / len(handles)
@@ -357,8 +358,8 @@ class Codeforces(commands.Cog):
                            if contest.phase == 'FINISHED' and any(tag in strfilt(contest.name) for tag in divs)
                            and not cf_common.is_nonstandard_contest(contest)}
 
+        # problem -> list of contests in which it appears
         contest_map = defaultdict(list)
-        problems = cf_common.cache2.problemset_cache.cache_master.conn.fetch_problems2()
         for problem in problems:
             try:
                 contest = cf_common.cache2.contest_cache.get_contest(problem.contestId)
@@ -367,8 +368,12 @@ class Codeforces(commands.Cog):
             except:
                 pass
 
+        # discard contests in which user has non-CE submissions
         for subs in user_submissions:
             for sub in subs:
+                if sub.verdict == 'COMPILATION_ERROR':
+                    continue
+
                 try:
                     contest = cf_common.cache2.contest_cache.get_contest(sub.problem.contestId)
                     problem_id = (sub.problem.name, contest.startTimeSeconds)
