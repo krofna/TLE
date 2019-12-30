@@ -344,7 +344,7 @@ class Codeforces(commands.Cog):
         handles = await cf_common.resolve_handles(ctx, self.converter, handles)
         user_submissions = [await cf.user.status(handle=handle) for handle in handles]
         info = await cf.user.info(handles=handles)
-        contests = await cf.contest.list()
+        contests = cf_common.cache2.contest_cache.contests
 
         if not markers:
             divr = sum(user.effective_rating for user in info) / len(handles)
@@ -357,9 +357,25 @@ class Codeforces(commands.Cog):
                            if contest.phase == 'FINISHED' and any(tag in strfilt(contest.name) for tag in divs)
                            and not cf_common.is_nonstandard_contest(contest)}
 
+        contest_map = defaultdict(list)
+        problems = cf_common.cache2.problemset_cache.cache_master.conn.fetch_problems2()
+        for problem in problems:
+            try:
+                contest = cf_common.cache2.contest_cache.get_contest(problem.contestId)
+                problem_id = (problem.name, contest.startTimeSeconds)
+                contest_map[problem_id].append(contest.id)
+            except:
+                pass
+
         for subs in user_submissions:
             for sub in subs:
-                recommendations.discard(sub.problem.contestId)
+                try:
+                    contest = cf_common.cache2.contest_cache.get_contest(sub.problem.contestId)
+                    problem_id = (sub.problem.name, contest.startTimeSeconds)
+                    for cid in contest_map.get(problem_id, []):
+                        recommendations.discard(cid)
+                except:
+                    pass
 
         if not recommendations:
             await ctx.send('Unable to recommend a contest')
