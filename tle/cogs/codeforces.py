@@ -408,7 +408,7 @@ class Codeforces(commands.Cog):
                     contest = cf_common.cache2.contest_cache.get_contest(sub.problem.contestId)
                     problem_id = (sub.problem.name, contest.startTimeSeconds)
                     for contestId in problem_to_contests[problem_id]:
-                        subs_by_contest_id[sub.contestId].add(sub.problem.name)
+                        subs_by_contest_id[contestId].add(sub.problem.name)
                 except cache_system2.ContestNotFound:
                     pass
 

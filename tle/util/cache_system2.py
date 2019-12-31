@@ -260,7 +260,6 @@ class ProblemsetCache:
         if self.cache_master.conn.problemset_empty():
             self.logger.warning('Problemset cache on disk is empty. This must be populated '
                                 'manually before use.')
-        self._update_from_disk()
         self._update_task.start()
 
     async def update_for_contest(self, contest_id):
@@ -343,6 +342,7 @@ class ProblemsetCache:
 
     def _update_from_disk(self):
         self.problems = self.cache_master.conn.fetch_problems2()
+        self.problem_to_contests = defaultdict(list)
         for problem in self.problems:
             try:
                 contest = cf_common.cache2.contest_cache.get_contest(problem.contestId)
