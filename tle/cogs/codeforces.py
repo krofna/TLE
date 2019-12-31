@@ -395,8 +395,7 @@ class Codeforces(commands.Cog):
         tags = [strfilt(x) for x in args if x[0] == '+']
 
         problem_to_contests = cf_common.cache2.problemset_cache.problem_to_contests
-        contests = cf_common.cache2.contest_cache.get_contests_in_phase('FINISHED')
-        contests = [contest for contest in contests
+        contests = [contest for contest in cf_common.cache2.contest_cache.get_contests_in_phase('FINISHED')
                     if (not tags or any(tag in strfilt(contest.name) for tag in tags))
                     and not cf_common.is_nonstandard_contest(contest)]
 
