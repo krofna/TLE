@@ -367,7 +367,7 @@ class Codeforces(commands.Cog):
                 try:
                     contest = cf_common.cache2.contest_cache.get_contest(sub.problem.contestId)
                     problem_id = (sub.problem.name, contest.startTimeSeconds)
-                    for cid in problem_to_contests.get(problem_id, []):
+                    for cid in problem_to_contests[problem_id]:
                         recommendations.discard(cid)
                 except cache_system2.ContestNotFound:
                     pass
