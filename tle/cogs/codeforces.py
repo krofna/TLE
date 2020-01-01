@@ -36,11 +36,11 @@ class Codeforces(commands.Cog):
 
     async def _validate_gitgud_status(self, ctx, delta):
         if delta % 100 != 0:
-            await ctx.send('Warning: delta will be rounded to the nearest hundred.')
+            await ctx.send('Delta must be a multiple of 100.')
+            return False
 
-        delta = round(delta, -2)
         if abs(delta) > _GITGUD_MAX_ABS_DELTA_VALUE:
-            await ctx.send(f'Delta can range from -{_GITGUD_MAX_ABS_DELTA_VALUE} to {_GITGUD_MAX_ABS_DELTA_VALUE}.')
+            await ctx.send(f'Delta must range from -{_GITGUD_MAX_ABS_DELTA_VALUE} to {_GITGUD_MAX_ABS_DELTA_VALUE}.')
             return False
 
         user_id = ctx.message.author.id
