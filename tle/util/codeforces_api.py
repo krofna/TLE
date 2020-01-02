@@ -258,6 +258,11 @@ async def _query_api(path, params=None):
         raise CallLimitExceededError(comment)
     raise TrueApiError(comment)
 
+async def resolve_redirect(handle):
+    url = 'https://codeforces.com/profile/' + handle
+    async with _session.get(url) as resp:
+        if resp.status == 200:
+            return str(resp.url).split('/')[-1]
 
 class contest:
     @staticmethod

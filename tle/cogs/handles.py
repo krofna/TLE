@@ -588,6 +588,14 @@ class Handles(commands.Cog):
         else:
             raise HandleCogError(f'Invalid role {which}')
 
+    @commands.command(brief='Magic update')
+    async def update(self, ctx):
+        for user_id, cf_user in cf_common.user_db.get_cf_users_for_guild(ctx.guild.id):
+            redirect = await cf.resolve_redirect(cf_user.handle)
+            if cf_user.handle != redirect:
+                cf_common.user_db.set_handle(user_id, ctx.guild.id, redirect)
+
+
     @discord_common.send_error_if(HandleCogError)
     async def cog_command_error(self, ctx, error):
         pass
