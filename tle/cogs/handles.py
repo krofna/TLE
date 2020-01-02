@@ -591,10 +591,11 @@ class Handles(commands.Cog):
     @commands.command(brief='Magic update')
     async def update(self, ctx):
         for user_id, cf_user in cf_common.user_db.get_cf_users_for_guild(ctx.guild.id):
-            print(cf_user.handle)
+            await asyncio.sleep(1)
+            self.logger.info('trying ' + cf_user.handle)
             redirect = await cf.resolve_redirect(cf_user.handle)
             if cf_user.handle != redirect:
-                print('updated to ' + redirect)
+                self.logger.info('updated to ' + redirect)
                 cf_common.user_db.set_handle(user_id, ctx.guild.id, redirect)
 
 
